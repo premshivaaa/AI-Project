@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "GOOGLE_API_KEY": "@google_api_key",
+    "FOURSQUARE_API_KEY": "@foursquare_api_key",
+    "MAPTILER_API_KEY": "@maptiler_api_key",
+    "MONGODB_URI": "@mongodb_uri"
+  }
+} 
