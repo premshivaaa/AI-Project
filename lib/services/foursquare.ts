@@ -1,9 +1,13 @@
 import axios from 'axios';
 import { Venue, VenueCategory, VenueSearchParams } from '../../types';
 
+if (!process.env.FOURSQUARE_API_KEY) {
+  throw new Error('FOURSQUARE_API_KEY environment variable is not set');
+}
+
 export class FoursquareService {
-  private readonly baseUrl = 'https://api.foursquare.com/v3';
-  private readonly apiKey = process.env.FOURSQUARE_API_KEY;
+  private apiKey = process.env.FOURSQUARE_API_KEY;
+  private baseUrl = 'https://api.foursquare.com/v3/places/search';
 
   private categoryMapping = {
     sports: '4bf58dd8d48988d184941735',
@@ -15,10 +19,12 @@ export class FoursquareService {
 
   async searchVenues(params: VenueSearchParams): Promise<Venue[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/places/search`, {
+      console.log('Searching venues with params:', params);
+
+      const response = await axios.get(this.baseUrl, {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Authorization': this.apiKey
         },
         params: {
           query: params.category,
@@ -26,40 +32,48 @@ export class FoursquareService {
           limit: 10,
           categories: this.categoryMapping[params.category],
           sort: 'RATING'
-        }
+        },
+        timeout: 10000
       });
 
+      console.log('Received venues from Foursquare');
+      
       return response.data.results.map((venue: any) => ({
         id: venue.fsq_id,
         name: venue.name,
         category: params.category,
-        address: venue.location.formatted_address,
+        address: venue.location?.formatted_address || 'Address not available',
         rating: venue.rating || 0,
         priceRange: venue.price || '$$',
-        capacity: this.estimateCapacity(params.category, venue.size || 'medium'),
+        capacity: this.estimateCapacity(params.category, params.personCount),
         photos: venue.photos || [],
         location: {
-          lat: venue.geocodes.main.latitude,
-          lng: venue.geocodes.main.longitude
+          lat: venue.geocodes?.main?.latitude || 0,
+          lng: venue.geocodes?.main?.longitude || 0
         },
-        mapUrl: `https://www.google.com/maps?q=${venue.geocodes.main.latitude},${venue.geocodes.main.longitude}`,
+        mapUrl: venue.geocodes?.main ? 
+          `https://www.google.com/maps?q=${venue.geocodes.main.latitude},${venue.geocodes.main.longitude}` : 
+          '#',
         description: venue.description || ''
       }));
-    } catch (error) {
-      console.error('Foursquare API Error:', error);
-      throw new Error('Failed to fetch venues');
+    } catch (error: any) {
+      console.error('Foursquare API Error:', error.response?.data || error.message);
+      throw new Error('Failed to fetch venues. Please try again.');
     }
   }
 
-  private estimateCapacity(category: VenueCategory, size: string): number {
-    const capacityMap = {
-      sports: { small: 50, medium: 200, large: 1000 },
-      personal: { small: 10, medium: 30, large: 100 },
-      business: { small: 20, medium: 50, large: 200 },
-      wedding: { small: 50, medium: 150, large: 500 },
-      party: { small: 30, medium: 100, large: 300 }
-    };
+  private estimateCapacity(category: VenueCategory, requestedCapacity: number): number {
+    // Return a capacity that's at least 20% more than requested
+    const minCapacity = Math.ceil(requestedCapacity * 1.2);
+    
+    const baseCapacity = {
+      sports: 200,
+      personal: 50,
+      business: 100,
+      wedding: 150,
+      party: 100
+    }[category] || 50;
 
-    return capacityMap[category][size as keyof typeof capacityMap[VenueCategory]] || 50;
+    return Math.max(baseCapacity, minCapacity);
   }
 } 
