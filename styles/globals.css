@@ -4,110 +4,87 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-:root {
-  --primary: #FF4B55;
-  --primary-dark: #E63E47;
-  --background: #121212;
-  --surface: #1E1E1E;
-  --surface-light: #2D2D2D;
-  --text: #FFFFFF;
-  --text-secondary: #A0A0A0;
-  --border: #333333;
-  --success: #4CAF50;
-  --error: #F44336;
-  --warning: #FFC107;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html,
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: var(--background);
-  color: var(--text);
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
-
-.card {
-  background-color: var(--surface);
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid var(--border);
-  transition: all 0.3s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.button {
-  background-color: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.button:hover {
-  background-color: var(--primary-dark);
-}
-
-.button.secondary {
-  background-color: var(--surface-light);
-  border: 1px solid var(--border);
-}
-
-.button.secondary:hover {
-  background-color: var(--surface);
-}
-
-.input {
-  background-color: var(--surface-light);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  color: var(--text);
-  width: 100%;
-  font-size: 1rem;
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-.badge {
-  background-color: var(--surface-light);
-  color: var(--text-secondary);
-  padding: 0.25rem 0.75rem;
-  border-radius: 16px;
-  font-size: 0.875rem;
-}
-
-.skeleton {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-light) 50%, var(--surface) 75%);
-  background-size: 200% 100%;
-  animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-  0% {
-    background-position: 200% 0;
+@layer base {
+  :root {
+    --primary: #FF4B55;
+    --primary-dark: #E63E47;
+    --background: #121212;
+    --surface: #1E1E1E;
+    --surface-light: #2D2D2D;
+    --text: #FFFFFF;
+    --text-secondary: #A0A0A0;
+    --border: #333333;
+    --success: #4CAF50;
+    --error: #F44336;
+    --warning: #FFC107;
   }
-  100% {
-    background-position: -200% 0;
+
+  * {
+    @apply box-border m-0 p-0;
+  }
+
+  html,
+  body {
+    @apply font-sans bg-background text-text;
+  }
+}
+
+@layer components {
+  .container {
+    @apply max-w-7xl mx-auto px-4;
+  }
+
+  .card {
+    @apply bg-surface rounded-xl p-6 border border-border transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .button {
+    @apply bg-primary text-white font-semibold px-6 py-3 rounded-lg cursor-pointer transition-colors duration-300 hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .button.secondary {
+    @apply bg-surface-light border border-border hover:bg-surface;
+  }
+
+  .input {
+    @apply w-full bg-surface-light border border-border rounded-lg px-4 py-3 text-text text-base focus:outline-none focus:border-primary transition-colors duration-300;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm bg-surface-light text-text-secondary;
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    @apply relative overflow-hidden bg-surface-light;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0;
+    content: '';
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .chat-height {
+    height: calc(100vh - 16rem);
+  }
+
+  .venues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .venue-image {
+    @apply aspect-video object-cover rounded-lg;
   }
 } 
