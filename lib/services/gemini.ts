@@ -1,36 +1,46 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import axios from 'axios';
 import { ChatMessage, VenueCategory } from '../../types';
 
 if (!process.env.GEMINI_API_KEY) {
   throw new Error('GEMINI_API_KEY environment variable is not set');
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 export class GeminiService {
-  private model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  private apiKey = process.env.GEMINI_API_KEY;
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+  private model = 'gemini-pro';
 
   async processUserInput(message: string, history: ChatMessage[]): Promise<string> {
     try {
-      console.log('Starting chat with history length:', history.length);
-      const chat = this.model.startChat({
-        history: history.map(msg => ({
-          role: msg.role,
-          parts: msg.content,
-        })),
-      });
-
       console.log('Sending message to Gemini:', message);
-      const result = await chat.sendMessage(message);
-      const response = await result.response;
-      console.log('Received response from Gemini');
-      return response.text();
-    } catch (error: any) {
-      console.error('Gemini API Error:', error);
-      if (error.message?.includes('API key')) {
-        throw new Error('Invalid or missing API key');
+      
+      const prompt = {
+        contents: [{
+          parts: [{
+            text: `User: ${message}\nAssistant:`
+          }]
+        }]
+      };
+
+      const response = await axios.post(
+        `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`,
+        prompt,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+
+      if (!response.data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response format from Gemini API');
       }
-      throw new Error(`Failed to process message with AI: ${error.message}`);
+
+      return response.data.candidates[0].content.parts[0].text;
+    } catch (error: any) {
+      console.error('Gemini API Error:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.error?.message || 'Failed to process message with AI');
     }
   }
 
@@ -39,33 +49,52 @@ export class GeminiService {
     personCount: number;
     location: string;
   }> {
-    const prompt = `Extract venue search preferences from the following message. Return a valid JSON object with these exact fields:
-    - category: must be one of these exact values: "sports", "personal", "business", "wedding", or "party"
-    - personCount: number of people (must be a number)
-    - location: location name (as a string)
-    
-    For the message: "${message}"
-    
-    Response must be in this exact format:
-    {
-      "category": "business",
-      "personCount": 10,
-      "location": "New York"
-    }`;
-    
+    const prompt = {
+      contents: [{
+        parts: [{
+          text: `Extract venue search preferences from this message. Return only a JSON object with these exact fields:
+          - category: must be one of: "sports", "personal", "business", "wedding", or "party"
+          - personCount: number of people (integer)
+          - location: location name (string)
+
+          Message: "${message}"
+
+          Response format:
+          {
+            "category": "business",
+            "personCount": 20,
+            "location": "New York"
+          }`
+        }]
+      }]
+    };
+
     try {
-      console.log('Sending preference extraction prompt to Gemini');
-      const result = await this.model.generateContent(prompt);
-      const response = await result.response;
-      console.log('Received preference extraction response');
+      console.log('Extracting preferences from message');
       
-      let parsed;
-      try {
-        parsed = JSON.parse(response.text());
-      } catch (e) {
-        console.error('JSON parse error:', e);
-        throw new Error('Failed to parse AI response as JSON');
+      const response = await axios.post(
+        `${this.baseUrl}/${this.model}:generateContent?key=${this.apiKey}`,
+        prompt,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+
+      const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('Invalid response format from Gemini API');
       }
+
+      // Extract JSON from the response text
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
       
       // Validate category
       if (!['sports', 'personal', 'business', 'wedding', 'party'].includes(parsed.category)) {
@@ -73,23 +102,23 @@ export class GeminiService {
       }
       
       // Validate personCount
-      if (typeof parsed.personCount !== 'number' || parsed.personCount <= 0) {
-        throw new Error('Invalid person count: must be a positive number');
+      if (!Number.isInteger(parsed.personCount) || parsed.personCount <= 0) {
+        throw new Error('Invalid person count: must be a positive integer');
       }
       
       // Validate location
       if (!parsed.location || typeof parsed.location !== 'string') {
         throw new Error('Invalid location: must be a non-empty string');
       }
-      
+
       return {
         category: parsed.category as VenueCategory,
         personCount: parsed.personCount,
         location: parsed.location
       };
     } catch (error: any) {
-      console.error('Venue preference extraction error:', error);
-      throw new Error(`Failed to extract venue preferences: ${error.message}`);
+      console.error('Venue preference extraction error:', error.response?.data || error.message);
+      throw new Error('Failed to extract venue preferences. Please try again with a clearer message.');
     }
   }
 } 
