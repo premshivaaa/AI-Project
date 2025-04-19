@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ChatMessage } from '../../types';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export class GeminiService {
-  private model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+  private model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   async processUserInput(message: string, history: ChatMessage[]): Promise<string> {
     try {
